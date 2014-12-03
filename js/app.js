@@ -1,20 +1,24 @@
 //LEVEL///////////////////////////////////////////////
+ 
+/*Level class takes5 arguments. each one an array of arrays*/
 var Level = function(allEnemies, rowImages, startPos, allBlocks, allCoins) {
-    this.allEnemies = allEnemies[levelCount];
+    this.allEnemies = allEnemies[levelCount];/*levelCount is used to iterate through the arrays */
     this.rowImages = rowImages[levelCount];
     this.startPos = startPos[levelCount];
     this.allBlocks = allBlocks[levelCount];
     this.allCoins = allCoins[levelCount];
-    this.blocks = [];
+    this.boundary = [];
     this.water = [];
     this.exit = [];
+    // this iterates through rowImages and creates an array for blocks,
+    // water and the exit
     for (row = 0; row < this.rowImages.length; row++) {
         for (var col = 0; col < this.rowImages.length; col++) {
             if (this.rowImages[row][col] === 'images/boundary.png') {
                 var arr = [];
                 arr.push((col) * 32);
                 arr.push((row) * 32);
-                this.blocks.push(arr);
+                this.boundary.push(arr);
             } else if (this.rowImages[row][col] === 'images/water.png') {
                 var arr2 = [];
                 arr2.push((col) * 32);
@@ -41,15 +45,16 @@ var Level = function(allEnemies, rowImages, startPos, allBlocks, allCoins) {
     this.start.init("start");
 };
 
+/* re initialises the level object and adds deleted coins back to their array */
 Level.prototype.gameover = function() {
     for (var i = 0; i < deleted.length; i++) {
         this.allCoins.push(deleted[i]);
     }
     deleted = [];
     level = new Level(allEnemies, rowImages, startPos, allBlocks, allCoins);
-
 };
 
+/* resets player position and checks if player is totally dead (0 lives) if so calls gameover() */
 Level.prototype.loseLife = function() {
     player.pos[0] = level.startPos[0];
     player.pos[1] = level.startPos[1];
@@ -65,6 +70,7 @@ Level.prototype.loseLife = function() {
     }
 };
 
+// initialises level with new parameters by setting levelCount+1
 Level.prototype.levelEnd = function() {
     level.start.get();
     levelCount += 1;
@@ -75,6 +81,7 @@ Level.prototype.levelEnd = function() {
     alert("More levels coming soon!!");
 };
 
+//scoreboard
 Level.prototype.scoreboard = function() {
     ctx.font = "30px serif";
     ctx.fillText(("LIVES: " + player.lives + " SCORE: " +
@@ -82,6 +89,7 @@ Level.prototype.scoreboard = function() {
 };
 
 //BLOCKS/////////////////////////////////////////////
+/* Block class. position, speed, horizontal or vertical, forwards/backwards, loop = what coordinate to switch direction */
 var Block = function(pos, speed, dir, rev, loop) {
     this.sprite = 'images/block.png';
     this.pos = pos;
@@ -91,7 +99,7 @@ var Block = function(pos, speed, dir, rev, loop) {
     this.rev = rev;
     this.loop = loop;
 };
-
+/* updates blocks, if they hit their loop, switch direction */
 Block.prototype.update = function(dt) {
     if (this.dir === 'horizontal' && this.rev === "f") {
         this.pos[0] += (this.size[0] * (dt * this.speed));
@@ -115,12 +123,13 @@ Block.prototype.update = function(dt) {
         }
     }
 };
-
+/* rounds a number (i) to the nearest multiple (j) */
 function NearestMultiple(i, j) {
     i = Math.round(i);
     return Math.round(i / j) * j;
 }
-
+/* round x and y the nearest 32, had to do this so my collision detection
+works properly. TODO: implement better collision detection! */
 Block.prototype.render = function() {
     var x = Math.round(this.pos[0]);
     x = NearestMultiple(x, 32);
@@ -130,6 +139,7 @@ Block.prototype.render = function() {
 };
 
 //ENEMIES/////////////////////////////////////////////
+/* same as Block class, need to make an entity class and inherit from there */
 var Enemy = function(pos, speed, dir, rev, loop) {
     this.sprite = 'images/enemy2.png';
     this.pos = pos;
@@ -171,6 +181,7 @@ Enemy.prototype.render = function() {
 };
 
 //PLAYER/////////////////////////////////////////////////
+/* Player class, startPos is the starting position on the grid */
 var Player = function(startPos, pos, speed, score, lives) {
     this.sprite = 'images/player.png';
     this.pos = pos;
@@ -181,19 +192,35 @@ var Player = function(startPos, pos, speed, score, lives) {
     this.startPos = startPos;
     this.lives = lives;
 };
-var restrictedList = [];
 
-function isNotIn(key) {
-    for (i = 0; i < restrictedList.length; i++) {
-        if (restrictedList[i] === key) {
-            return true;
+/* checks if player is adjacent to a boundary. If so, pushes the direction
+to restrictedList */
+var restrictedList = [];
+function checkBoundary(pos) {
+    for (var boundaryBlock = 0; boundaryBlock < level.boundary.length; boundaryBlock++) {
+        if (pos[1] - 32 === level.boundary[boundaryBlock][1] &&
+            pos[0] === level.boundary[boundaryBlock][0]) {
+            restrictedList.push("up");
+        } else if (pos[1] + 32 === level.boundary[boundaryBlock][1] &&
+            pos[0] === level.boundary[boundaryBlock][0]) {
+            restrictedList.push("down");
+        } else if (pos[0] - 32 === level.boundary[boundaryBlock][0] &&
+            pos[1] === level.boundary[boundaryBlock][1]) {
+            restrictedList.push("left");
+        } else if (pos[0] + 32 === level.boundary[boundaryBlock][0] &&
+            pos[1] === level.boundary[boundaryBlock][1]) {
+            restrictedList.push("right");
         }
+        player.onBlock = false;
     }
 }
-
+/* a simple object that will contain one keydown string at a time */
 var keyPress = {
     value: null
 };
+
+/* takes keydown value from event listener and sets the variable direction
+to a string, checks player boundaries and references restrictesList to see if there is a restriction on moving in that direction (checkBoundary()) */
 Player.prototype.handleInput = function(input) {
     switch (input) {
         case 'up':
@@ -215,7 +242,7 @@ Player.prototype.handleInput = function(input) {
         default:
     }
     restrictedList = [];
-    checkBlocks(player.pos);
+    checkBoundary(player.pos);
     if (isNotIn(input)) {
         delete keyPress.value;
 
@@ -224,6 +251,15 @@ Player.prototype.handleInput = function(input) {
     }
 };
 
+function isNotIn(key) {
+    for (i = 0; i < restrictedList.length; i++) {
+        if (restrictedList[i] === key) {
+            return true;
+        }
+    }
+}
+
+/* updates Player position and deletes the value of keyPress */
 Player.prototype.update = function(dt) {
     if (keyPress.value) {
         switch (keyPress.value) {
@@ -274,6 +310,7 @@ Coin.prototype.render = function() {
 };
 
 //COLLISIONS////////////////////////////////////////
+/* i modified code from http://jlongster.com/Making-Sprite-based-Games-with-Canvas to help me with this */
 function collides(x, y, r, b, x2, y2, r2, b2) {
     return !(r <= x2 || x > r2 ||
         b <= y2 || y > b2);
@@ -284,25 +321,6 @@ function boxCollides(pos, size, pos2, size2) {
         pos[0] + size[0], pos[1] + size[1],
         pos2[0], pos2[1],
         pos2[0] + size2[0], pos2[1] + size2[1]);
-}
-
-function checkBlocks(pos) {
-    for (var block = 0; block < level.blocks.length; block++) {
-        if (pos[1] - 32 === level.blocks[block][1] &&
-            pos[0] === level.blocks[block][0]) {
-            restrictedList.push("up");
-        } else if (pos[1] + 32 === level.blocks[block][1] &&
-            pos[0] === level.blocks[block][0]) {
-            restrictedList.push("down");
-        } else if (pos[0] - 32 === level.blocks[block][0] &&
-            pos[1] === level.blocks[block][1]) {
-            restrictedList.push("left");
-        } else if (pos[0] + 32 === level.blocks[block][0] &&
-            pos[1] === level.blocks[block][1]) {
-            restrictedList.push("right");
-        }
-        player.onBlock = false;
-    }
 }
 
 function checkPlayerBounds() {
@@ -316,20 +334,19 @@ function checkPlayerBounds() {
         player.pos[1] = 640 - player.size[1];
     }
 }
-
+/* checks if player position is colliding with the exit, enemies, blocks, coins or water. */
 var deleted = [];
-
 function checkCollisions() {
     checkPlayerBounds();
     if (player.pos[0] === level.exit[0] &&
         player.pos[1] === level.exit[1]) {
-        level.levelEnd();
+        level.levelEnd(); // next level
     }
     for (var enemy = 0; enemy < level.allEnemies.length; enemy++) {
         var pos = level.allEnemies[enemy].pos;
         var size = level.allEnemies[enemy].size;
         if (boxCollides(pos, size, player.pos, player.size)) {
-            level.loseLife();
+            level.loseLife(); // lose life, reset position
         }
     }
     if (level.allBlocks.length > 0) {
@@ -340,6 +357,7 @@ function checkCollisions() {
                 player.onBlock = true;
                 if (level.allBlocks[i].dir === 'horizontal') {
                     var x = player.pos[0];
+                    //if on a block, follow its movement
                     player.pos[0] = NearestMultiple(level.allBlocks[i].pos[0], 32);
                     if (player.pos[0] != x) {
                         level.explosion.get();
@@ -360,9 +378,9 @@ function checkCollisions() {
         for (var i = 0; i < level.allCoins.length; i++) {
             if (player.pos[0] === level.allCoins[i].pos[0] &&
                 player.pos[1] === level.allCoins[i].pos[1]) {
-                player.score = player.score + 20;
-                var coin = level.allCoins.splice(i, 1);
-                deleted.push(coin[0]);
+                player.score = player.score + 20; // score
+                var coin = level.allCoins.splice(i, 1); //cut coin from array
+                deleted.push(coin[0]); /*add coin to deleted array, so can be added back when game over) a workaround, couldn't make it work by passing allCoins into the new level object */
             }
         }
     }
@@ -378,7 +396,9 @@ function checkCollisions() {
 }
 
 //INITIALISE//////////////////////////////////////////
+//iterator to control levels
 var levelCount = 0;
+//Block(position,speed,direction,forward/backwards,loop coords)
 var block1 = new Block([32, 608], 5, "horizontal", "f", [32, 480]);
 var block2 = new Block([384, 576], 3, "horizontal", "b", [384, 512]);
 var block3 = new Block([32, 480], 8, "horizontal", "b", [32, 640]);
@@ -401,6 +421,8 @@ var enemy1_12 = new Enemy([384, 96], 2, "vertical", 'f', [96, 288]);
 var enemy1_13 = new Enemy([0, 96], 10, "horizontal", 'f', [0, 640]);
 var enemy1_14 = new Enemy([96, 32], 10, "horizontal", 'f', [0, 640]);
 var enemy1_15 = new Enemy([320, 64], 10, "horizontal", 'f', [0, 640]);
+/* returns allCoins as an array of objects.
+TODO: do this for allEnemies and allBlocks */
 var coins = []
 var allCoins = [];
 function makeCoins(arr) {
@@ -496,6 +518,8 @@ var allEnemies = [
     ],
     []
 ];
+/*an array of arrays of arrays(?) that is used to make up the background,
+water, boundaries and exit. */
 var b = 'images/boundary.png';
 var X = 'images/white.png';
 var e = 'images/exit.png';
@@ -547,12 +571,20 @@ var rowImages = [
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X]
     ]
 ];
+//player start positions in an array
 var startPos = [
     [576, 576],
     [32, 32]
 ];
 var level = new Level(allEnemies, rowImages, startPos, allBlocks, allCoins);
+/*player(startPosition,position,speed,score,lives).
+note: have to start with 4 lives instaed of 3 because of a bug where gameover() is being called at the beginning of the game */
+
 var player = new Player([], [], 5, 0, 4);
+
+
+
+/* i modified this code from: http://blog.sklambert.com/html5-canvas-game-html5-audio-and-finishing-touches/ */
 /**
  * A sound pool to use for the sound effects
  */
