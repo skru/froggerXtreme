@@ -24,10 +24,13 @@ var Engine = (function(global) {
         ctx = canvas.getContext('2d'),
         lastTime;
 
+
     canvas.width = 640;
     canvas.height = 640;
     canvas.id = 'respondCanvas';
-    doc.body.appendChild(canvas);
+    ele = document.getElementById('game-box');
+
+    ele.appendChild(canvas);
 
     /* This function serves as the kickoff point for the game loop itself
      * and handles properly calling the update and render methods.
@@ -95,13 +98,15 @@ var Engine = (function(global) {
      * render methods.
      */
     function updateEntities(dt) {
-        level.allEnemies.forEach(function(enemy) {
-            enemy.update(dt);
-        });
-        level.allBlocks.forEach(function(block) {
-            block.update(dt);
-        });
-        player.update(dt);
+        if (level.paused === false) {
+            level.allEnemies.forEach(function(enemy) {
+                enemy.update(dt);
+            });
+            level.allBlocks.forEach(function(block) {
+                block.update(dt);
+            });
+            player.update(dt);
+        }
     }
 
     /* This function initially draws the "game level", it will then call
@@ -118,6 +123,9 @@ var Engine = (function(global) {
         }
         renderEntities();
         level.scoreboard();
+        if (level.paused === true) {
+            level.pause();
+        }
     }
 
     /* This function is called by the render function and is called on each game
@@ -141,6 +149,7 @@ var Engine = (function(global) {
             });
         }
         player.render();
+        level.scenes();
         //level.scoreboard();
     }
 
@@ -165,7 +174,8 @@ var Engine = (function(global) {
         'images/point.png',
         'images/white.png',
         'images/enemy2.png',
-        'images/water.png'
+        'images/water.png',
+
     ]);
     Resources.onReady(init);
 

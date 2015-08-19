@@ -1,8 +1,7 @@
 //LEVEL///////////////////////////////////////////////
- 
 /*Level class takes5 arguments. each one an array of arrays*/
 var Level = function(allEnemies, rowImages, startPos, allBlocks, allCoins) {
-    this.allEnemies = allEnemies[levelCount];/*levelCount is used to iterate through the arrays */
+    this.allEnemies = allEnemies[levelCount]; /*levelCount is used to iterate through the arrays */
     this.rowImages = rowImages[levelCount];
     this.startPos = startPos[levelCount];
     this.allBlocks = allBlocks[levelCount];
@@ -10,6 +9,8 @@ var Level = function(allEnemies, rowImages, startPos, allBlocks, allCoins) {
     this.boundary = [];
     this.water = [];
     this.exit = [];
+    this.paused = false;
+
     // this iterates through rowImages and creates an array for blocks,
     // water and the exit
     for (row = 0; row < this.rowImages.length; row++) {
@@ -44,14 +45,59 @@ var Level = function(allEnemies, rowImages, startPos, allBlocks, allCoins) {
     this.start = new SoundPool(10);
     this.start.init("start");
 };
+Level.prototype.scenes = function() {
+    if (levelCount === 0) {
+        ctx.fillStyle = 'black';
+        ctx.fillRect(64, 96, 288, 288);
+        ctx.fillStyle = 'red';
+        ctx.fillRect(96, 128, 32, 32);
+        ctx.fillStyle = 'white';
+        ctx.font = '20px Serif';
+        ctx.fillText('= LAVA     AVOID', 160, 148);
+        ctx.fillStyle = 'blue';
+        ctx.fillRect(96, 192, 32, 32);
+        ctx.fillStyle = 'white';
+        ctx.fillText('= WATER  AVOID', 160, 212);
+        ctx.drawImage(Resources.get('images/point.png'), 96, 256);
+        ctx.fillStyle = 'white';
+        ctx.fillText('= 25 POINTS', 160, 276);
+        ctx.drawImage(Resources.get('images/block.png'), 96, 320);
+        ctx.fillStyle = 'white';
+        ctx.fillText('= USE', 160, 340);
+        ctx.fillStyle = 'black';
+    } else if (levelCount === 3) {
+        ctx.fillStyle = 'black';
+        ctx.font = '20px Serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('more levels and stuff coming soon', canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = 'start';
+    }
 
-/* re initialises the level object and adds deleted coins back to their array */
+};
+
+Level.prototype.pause = function() {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, 640, 640, 0.8);
+        ctx.fillStyle = 'white';
+        ctx.font = "30px Sans-Serif";
+        ctx.textAlign = 'center';
+
+        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = 'black';
+        ctx.textAlign = 'start';
+        ctx.globalAlpha = 1;
+
+    }
+    /* re initialises the level object and adds deleted coins back to their array */
 Level.prototype.gameover = function() {
     for (var i = 0; i < deleted.length; i++) {
         this.allCoins.push(deleted[i]);
     }
     deleted = [];
     level = new Level(allEnemies, rowImages, startPos, allBlocks, allCoins);
+    player.pos[0] = level.startPos[0];
+    player.pos[1] = level.startPos[1];
 };
 
 /* resets player position and checks if player is totally dead (0 lives) if so calls gameover() */
@@ -72,20 +118,24 @@ Level.prototype.loseLife = function() {
 
 // initialises level with new parameters by setting levelCount+1
 Level.prototype.levelEnd = function() {
+    for (var i = 0; i < deleted.length; i++) {
+        this.allCoins.push(deleted[i]);
+    }
+    deleted = [];
     level.start.get();
     levelCount += 1;
     level = new Level(allEnemies, rowImages, startPos, allBlocks, allCoins);
     player.pos[0] = level.startPos[0];
     player.pos[1] = level.startPos[1];
     player.score = player.score + 100;
-    alert("More levels coming soon!!");
+
 };
 
 //scoreboard
 Level.prototype.scoreboard = function() {
-    ctx.font = "30px serif";
+    ctx.font = "25px Sans-Serif";
     ctx.fillText(("LIVES: " + player.lives + " SCORE: " +
-        player.score + " LEVEL: " + (levelCount + 1)), 2, 26);
+        player.score + " LEVEL: " + (levelCount + 1)), 0, 20);
 };
 
 //BLOCKS/////////////////////////////////////////////
@@ -101,6 +151,7 @@ var Block = function(pos, speed, dir, rev, loop) {
 };
 /* updates blocks, if they hit their loop, switch direction */
 Block.prototype.update = function(dt) {
+
     if (this.dir === 'horizontal' && this.rev === "f") {
         this.pos[0] += (this.size[0] * (dt * this.speed));
         if (this.pos[0] > this.loop[1]) {
@@ -125,11 +176,11 @@ Block.prototype.update = function(dt) {
 };
 /* rounds a number (i) to the nearest multiple (j) */
 function NearestMultiple(i, j) {
-    i = Math.round(i);
-    return Math.round(i / j) * j;
-}
-/* round x and y the nearest 32, had to do this so my collision detection
-works properly. TODO: implement better collision detection! */
+        i = Math.round(i);
+        return Math.round(i / j) * j;
+    }
+    /* round x and y the nearest 32, had to do this so my collision detection
+    works properly. TODO: implement better collision detection! */
 Block.prototype.render = function() {
     var x = Math.round(this.pos[0]);
     x = NearestMultiple(x, 32);
@@ -196,33 +247,45 @@ var Player = function(startPos, pos, speed, score, lives) {
 /* checks if player is adjacent to a boundary. If so, pushes the direction
 to restrictedList */
 var restrictedList = [];
+
 function checkBoundary(pos) {
-    for (var boundaryBlock = 0; boundaryBlock < level.boundary.length; boundaryBlock++) {
-        if (pos[1] - 32 === level.boundary[boundaryBlock][1] &&
-            pos[0] === level.boundary[boundaryBlock][0]) {
-            restrictedList.push("up");
-        } else if (pos[1] + 32 === level.boundary[boundaryBlock][1] &&
-            pos[0] === level.boundary[boundaryBlock][0]) {
-            restrictedList.push("down");
-        } else if (pos[0] - 32 === level.boundary[boundaryBlock][0] &&
-            pos[1] === level.boundary[boundaryBlock][1]) {
-            restrictedList.push("left");
-        } else if (pos[0] + 32 === level.boundary[boundaryBlock][0] &&
-            pos[1] === level.boundary[boundaryBlock][1]) {
-            restrictedList.push("right");
+        for (var boundaryBlock = 0; boundaryBlock < level.boundary.length; boundaryBlock++) {
+            if (pos[1] - 32 === level.boundary[boundaryBlock][1] &&
+                pos[0] === level.boundary[boundaryBlock][0]) {
+                restrictedList.push("up");
+            } else if (pos[1] + 32 === level.boundary[boundaryBlock][1] &&
+                pos[0] === level.boundary[boundaryBlock][0]) {
+                restrictedList.push("down");
+            } else if (pos[0] - 32 === level.boundary[boundaryBlock][0] &&
+                pos[1] === level.boundary[boundaryBlock][1]) {
+                restrictedList.push("left");
+            } else if (pos[0] + 32 === level.boundary[boundaryBlock][0] &&
+                pos[1] === level.boundary[boundaryBlock][1]) {
+                restrictedList.push("right");
+            }
+            player.onBlock = false;
         }
-        player.onBlock = false;
     }
-}
-/* a simple object that will contain one keydown string at a time */
+    /* a simple object that will contain one keydown string at a time */
 var keyPress = {
     value: null
 };
 
 /* takes keydown value from event listener and sets the variable direction
 to a string, checks player boundaries and references restrictesList to see if there is a restriction on moving in that direction (checkBoundary()) */
+var pause = {}
 Player.prototype.handleInput = function(input) {
     switch (input) {
+        case 'space':
+            if (pause.value !== 'paused') {
+                level.paused = true;
+                pause.value = 'paused';
+            } else {
+                level.paused = false;
+                delete pause.value;
+                ctx.globalAlpha = 1
+            }
+            break;
         case 'up':
             var direction = 'up';
             level.laser.get();
@@ -292,10 +355,28 @@ document.addEventListener('keydown', function(e) {
         37: 'left',
         38: 'up',
         39: 'right',
-        40: 'down'
+        40: 'down',
+        32: 'space'
     };
     player.handleInput(allowedKeys[e.keyCode]);
 });
+$('#square1').click(function(e) {
+    e.preventDefault();
+    player.handleInput('up');
+});
+$('#square2').click(function(e) {
+    e.preventDefault();
+    player.handleInput('right');
+});
+$('#square3').click(function(e) {
+    e.preventDefault();
+    player.handleInput('down');
+});
+$('#square4').click(function(e) {
+    e.preventDefault();
+    player.handleInput('left');
+});
+
 
 //COINS/////////////////////////////////////////////
 var Coin = function(pos) {
@@ -324,18 +405,19 @@ function boxCollides(pos, size, pos2, size2) {
 }
 
 function checkPlayerBounds() {
-    if (player.pos[0] < 0) {
-        player.pos[0] = 0;
-    } else if (player.pos[0] > 640 - player.size[0]) {
-        player.pos[0] = 640 - player.size[0];
-    } else if (player.pos[1] < 0) {
-        player.pos[1] = 0;
-    } else if (player.pos[1] > 640 - player.size[1]) {
-        player.pos[1] = 640 - player.size[1];
+        if (player.pos[0] < 0) {
+            player.pos[0] = 0;
+        } else if (player.pos[0] > 640 - player.size[0]) {
+            player.pos[0] = 640 - player.size[0];
+        } else if (player.pos[1] < 0) {
+            player.pos[1] = 0;
+        } else if (player.pos[1] > 640 - player.size[1]) {
+            player.pos[1] = 640 - player.size[1];
+        }
     }
-}
-/* checks if player position is colliding with the exit, enemies, blocks, coins or water. */
+    /* checks if player position is colliding with the exit, enemies, blocks, coins or water. */
 var deleted = [];
+
 function checkCollisions() {
     checkPlayerBounds();
     if (player.pos[0] === level.exit[0] &&
@@ -378,7 +460,7 @@ function checkCollisions() {
         for (var i = 0; i < level.allCoins.length; i++) {
             if (player.pos[0] === level.allCoins[i].pos[0] &&
                 player.pos[1] === level.allCoins[i].pos[1]) {
-                player.score = player.score + 20; // score
+                player.score = player.score + 25; // score
                 var coin = level.allCoins.splice(i, 1); //cut coin from array
                 deleted.push(coin[0]); /*add coin to deleted array, so can be added back when game over) a workaround, couldn't make it work by passing allCoins into the new level object */
             }
@@ -398,33 +480,165 @@ function checkCollisions() {
 //INITIALISE//////////////////////////////////////////
 //iterator to control levels
 var levelCount = 0;
-//Block(position,speed,direction,forward/backwards,loop coords)
-var block1 = new Block([32, 608], 5, "horizontal", "f", [32, 480]);
-var block2 = new Block([384, 576], 3, "horizontal", "b", [384, 512]);
-var block3 = new Block([32, 480], 8, "horizontal", "b", [32, 640]);
-var block4 = new Block([226, 320], 4, "horizontal", "f", [226, 608]);
-var block5 = new Block([226, 288], 4, "horizontal", "f", [226, 608]);
-var block6 = new Block([480, 256], 2, "horizontal", "f", [480, 608]);
-var block7 = new Block([480, 224], 2, "horizontal", "f", [480, 608]);
-var enemy1_1 = new Enemy([608, 480], 7, "horizontal");
-var enemy1_2 = new Enemy([0, 384], 5, "horizontal", 'b', [0, 228]);
-var enemy1_3 = new Enemy([128, 160], 3, "vertical", 'f', [160, 288]);
-var enemy1_4 = new Enemy([224, 160], 5, "vertical", 'f', [160, 448]);
-var enemy1_5 = new Enemy([256, 288], 7, "horizontal");
-var enemy1_6 = new Enemy([448, 288], 7, "horizontal");
-var enemy1_7 = new Enemy([256, 320], 7, "horizontal");
-var enemy1_8 = new Enemy([608, 320], 7, "horizontal");
-var enemy1_9 = new Enemy([608, 224], 7, "horizontal");
-var enemy1_10 = new Enemy([480, 224], 7, "horizontal");
-var enemy1_11 = new Enemy([448, 96], 4, "vertical", 'b', [96, 288]);
-var enemy1_12 = new Enemy([384, 96], 2, "vertical", 'f', [96, 288]);
-var enemy1_13 = new Enemy([0, 96], 10, "horizontal", 'f', [0, 640]);
-var enemy1_14 = new Enemy([96, 32], 10, "horizontal", 'f', [0, 640]);
-var enemy1_15 = new Enemy([320, 64], 10, "horizontal", 'f', [0, 640]);
-/* returns allCoins as an array of objects.
-TODO: do this for allEnemies and allBlocks */
-var coins = []
+
+var enemies = [];
+var allEnemies = []
+
+function makeEnemies(arr) {
+    for (var i = 0; i < arr.length; i++) {
+        for (var x = 0; x < arr[i].length; x++) {
+            var enemy = arr[i][x];
+            //console.log(enemy)
+            enemies.push(new Enemy(enemy[0], enemy[1], enemy[2], enemy[3],
+                enemy[4], enemy[5]))
+        }
+        allEnemies.push(enemies)
+        enemies = []
+    }
+}
+
+makeEnemies([
+    [
+        [
+            [128, 160], 3, "vertical", 'f', [160, 288]
+        ]
+    ],
+    [
+        [
+            [128, 160], 3, "vertical", 'f', [160, 288]
+        ],
+        [
+            [224, 160], 5, "vertical", 'f', [160, 448]
+        ],
+        [
+            [448, 96], 4, "vertical", 'b', [96, 288]
+        ],
+        [
+            [384, 96], 2, "vertical", 'f', [96, 288]
+        ],
+        [
+            [0, 96], 10, "horizontal", 'f', [0, 640]
+        ],
+        [
+            [96, 32], 10, "horizontal", 'f', [0, 640]
+        ],
+        [
+            [320, 640], 10, "horizontal", 'f', [0, 640]
+        ],
+
+    ],
+    [
+        [
+            [224, 96], 6, "vertical", 'b', [96, 640]
+        ],
+        [
+            [320, 96], 4, "vertical", 'f', [96, 384]
+        ],
+        [
+            [320, 512], 5, "horizontal", 'b', [320, 544]
+        ],
+        [
+            [0, 32], 5, "horizontal", 'b', [0, 448]
+        ],
+    ],
+    []
+]);
+
+var blocks = [];
+var allBlocks = []
+
+function makeBlocks(arr) {
+    for (var i = 0; i < arr.length; i++) {
+        for (var x = 0; x < arr[i].length; x++) {
+            var block = arr[i][x];
+            blocks.push(new Block(block[0], block[1], block[2], block[3],
+                block[4], block[5]))
+        }
+        allBlocks.push(blocks)
+        blocks = []
+    }
+}
+
+makeBlocks([
+    [
+        [
+            [574, 32], 4, "vertical", "f", [32, 158]
+        ]
+    ],
+    [
+        [
+            [32, 608], 5, "horizontal", "f", [32, 480]
+        ],
+        [
+            [384, 576], 3, "horizontal", "b", [384, 512]
+        ],
+        [
+            [32, 480], 8, "horizontal", "b", [32, 640]
+        ],
+        [
+            [226, 320], 4, "horizontal", "f", [226, 608]
+        ],
+        [
+            [226, 288], 4, "horizontal", "f", [226, 608]
+        ],
+        [
+            [480, 256], 2, "horizontal", "f", [480, 608]
+        ],
+        [
+            [480, 224], 2, "horizontal", "f", [480, 608]
+        ]
+
+    ],
+    [
+        [
+            [96, 576], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 544], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 512], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 480], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 448], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 416], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 384], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [96, 352], 9, "horizontal", "f", [96, 512]
+        ],
+        [
+            [0, 192], 4, "vertical", "f", [192, 256]
+        ],
+        [
+            [32, 192], 4, "vertical", "f", [192, 256]
+        ],
+        [
+            [160, 192], 3, "horizontal", "f", [160, 256]
+        ],
+        [
+            [416, 192], 2, "horizontal", "f", [416, 480]
+        ],
+        [
+            [480, 96], 2, "vertical", "f", [96, 160]
+        ],
+        [
+            [480, 64], 2, "vertical", "b", [0, 64]
+        ],
+    ],
+    []
+]);
+
+var coins = [];
 var allCoins = [];
+
 function makeCoins(arr) {
     for (var i = 0; i < arr.length; i++) {
         for (var x = 0; x < arr[i].length; x++) {
@@ -434,7 +648,39 @@ function makeCoins(arr) {
         coins = []
     }
 }
+
 makeCoins([
+    [
+        [96, 576],
+        [128, 576],
+        [160, 576],
+        [192, 576],
+        [224, 576],
+        [256, 576],
+        [288, 576],
+        [320, 576],
+        [352, 576],
+        [384, 576],
+        [416, 576],
+        [448, 576],
+        [480, 576],
+        [512, 576],
+        [544, 576],
+        [576, 576],
+        [576, 544],
+        [576, 512],
+        [576, 480],
+        [576, 448],
+        [576, 416],
+        [576, 384],
+        [576, 352],
+        [576, 320],
+        [576, 288],
+        [576, 256],
+        [576, 224],
+        [576, 192],
+        [576, 160],
+    ],
     [
         [576, 544],
         [544, 544],
@@ -502,29 +748,114 @@ makeCoins([
         [576, 64],
         [576, 32]
     ],
+    [
+        [32, 32],
+        [64, 32],
+        [96, 32],
+        [128, 32],
+        [160, 32],
+        [256, 32],
+        [288, 32],
+        [320, 32],
+        [352, 32],
+        [384, 32],
+        [416, 32],
+        [544, 32],
+        [608, 32],
+        [608, 192],
+        [544, 192],
+        [416, 192],
+        [256, 192],
+        [160, 192],
+        [0, 192],
+        [32, 192],
+        [128, 384],
+        [160, 384],
+        [192, 384],
+        [224, 384],
+        [256, 384],
+        [288, 384],
+        [320, 384],
+        [352, 384],
+        [384, 384],
+        [416, 384],
+        [448, 384],
+        [480, 384],
+        [128, 416],
+        [160, 416],
+        [192, 416],
+        [224, 416],
+        [256, 416],
+        [288, 416],
+        [320, 416],
+        [352, 416],
+        [384, 416],
+        [416, 416],
+        [448, 416],
+        [480, 416],
+        [128, 448],
+        [160, 448],
+        [192, 448],
+        [224, 448],
+        [256, 448],
+        [288, 448],
+        [320, 448],
+        [352, 448],
+        [384, 448],
+        [416, 448],
+        [448, 448],
+        [480, 448],
+        [128, 480],
+        [160, 480],
+        [192, 480],
+        [224, 480],
+        [256, 480],
+        [288, 480],
+        [320, 480],
+        [352, 480],
+        [384, 480],
+        [416, 480],
+        [448, 480],
+        [480, 480],
+
+
+
+    ],
     []
 ]);
-var allBlocks = [
-    [block1, block2, block3, block4, block5,
-        block6, block7
-    ],
-    []
-];
-var allEnemies = [
-    [enemy1_1, enemy1_9, enemy1_2, enemy1_3,
-        enemy1_4, enemy1_5, enemy1_6, enemy1_7,
-        enemy1_8, enemy1_10, enemy1_11, enemy1_12,
-        enemy1_13, enemy1_14, enemy1_15
-    ],
-    []
-];
+
 /*an array of arrays of arrays(?) that is used to make up the background,
 water, boundaries and exit. */
 var b = 'images/boundary.png';
 var X = 'images/white.png';
 var e = 'images/exit.png';
 var w = 'images/water.png';
+var R = 'images/enemy2.png';
+var G = 'images/goodtext.png';
+var B = 'images/badtext.png';
 var rowImages = [
+    [
+        [b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, w, e, w],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, w, X, w],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, w, X, w],
+        [w, w, b, b, b, b, b, b, b, b, b, w, w, w, w, w, b, w, w, w],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, w, w, w],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, w, w, w, w, w, w, w, b, w, w, w, w, w, b, X, X, X],
+        [w, w, b, b, b, b, b, b, b, b, b, w, w, w, w, w, b, X, X, X],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, X, X, X],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, X, X, X],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, X, X, X],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, b, X, X, X],
+        [b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X]
+    ],
     [
         [b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, b, X, e, X],
         [w, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
@@ -547,20 +878,41 @@ var rowImages = [
         [X, X, X, X, X, X, X, X, w, w, X, X, X, w, w, w, X, X, X, X],
         [b, X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, b, X, X, X]
     ],
-
     [
-        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, e, X],
+        [b, b, b, b, b, b, b, b, b, b, b, b, b, b, w, w, X, X, w, e],
+        [w, X, X, X, X, X, w, w, X, X, X, X, X, X, w, w, w, X, w, X],
+        [X, X, w, w, w, X, w, w, X, w, w, w, w, X, w, w, w, X, w, X],
+        [X, X, w, w, w, X, w, w, X, w, w, w, w, X, w, w, w, X, w, X],
+        [X, X, w, w, w, X, w, w, X, w, w, w, w, X, w, w, w, X, w, X],
+        [X, X, w, w, w, X, w, w, X, w, w, w, w, X, w, w, w, X, w, X],
+        [X, X, w, w, w, X, w, w, X, w, w, w, w, X, w, w, w, X, X, X],
+        [w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X, X, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X],
+        [X, X, X, X, X, w, w, w, w, w, w, w, w, w, w, w, w, w, X, X]
+    ],
+    [
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
-        [X, X, X, X, X, X, X, X, X, X, X, X, X, w, w, w, X, X, X, X],
-        [X, X, X, X, w, w, w, X, X, X, X, X, X, w, w, w, X, X, X, X],
-        [X, X, X, X, w, w, w, X, X, X, X, X, X, w, w, w, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
-        [X, X, X, X, w, w, w, w, w, w, w, w, w, w, w, w, X, X, X, X],
-        [X, X, X, X, X, w, w, w, w, w, w, w, w, w, w, X, X, X, X, X],
-        [X, X, X, X, X, X, w, w, w, w, w, w, w, w, X, X, X, X, X, X],
-        [X, X, X, X, X, X, X, X, w, w, w, w, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
+        [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
@@ -569,12 +921,17 @@ var rowImages = [
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X],
         [X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X, X]
-    ]
+    ],
+
 ];
+
+
 //player start positions in an array
 var startPos = [
+    [32, 576],
     [576, 576],
-    [32, 32]
+    [576, 576],
+    [32.32]
 ];
 var level = new Level(allEnemies, rowImages, startPos, allBlocks, allCoins);
 /*player(startPosition,position,speed,score,lives).
@@ -600,14 +957,14 @@ function SoundPool(maxSize) {
         if (object == "laser") {
             for (var i = 0; i < size; i++) {
                 // Initalize the sound
-                laser = new Audio("sounds/laser.wav");
+                laser = new Audio('sounds/laser.wav');
                 laser.volume = .12;
                 laser.load();
                 pool[i] = laser;
             }
         } else if (object == "explosion") {
             for (var i = 0; i < size; i++) {
-                var explosion = new Audio("sounds/explosion.wav");
+                var explosion = new Audio("");
                 explosion.volume = .1
                 explosion.load();
                 pool[i] = explosion;

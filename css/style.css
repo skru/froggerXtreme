@@ -1,9 +1,105 @@
-
-canvas {
-  display: flex;
-  margin: 0 auto;
-  height: 100%;
-  
-  border: 10px solid #c3c3c3;
-  overflow:hidden;
+body {
+   background: #C3C3C3;
 }
+#game-box{
+  max-width: 500px;
+}
+a {
+    color: white;
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: none;
+    color: white;
+}
+
+#respondCanvas {
+    width:100%;
+}
+ #game-box {
+    position: relative;
+    margin: 0 auto;
+    
+   overflow: hidden;
+  }
+  .controls_container {
+
+    position: absolute;
+    top:0;
+    margin: 0 auto;
+
+    width: 50%;
+
+    height: 50%;
+  }
+  .square {
+    z-index: 100;
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    -webkit-transform: rotate(45deg);
+    -moz-transform: rotate(45deg);
+    -o-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    transform: rotate(45deg);
+
+  }
+  #square1 {
+    background: black;
+    opacity: 0.1;
+    top: -50%;
+    left: 50%;
+  }
+  #square2 {
+    background: black;
+    opacity: 0.1;
+    top: 50%;
+    left: 150%;
+  }
+  #square3 {
+    background: black;
+    opacity: 0.1;
+    top: 150%;
+    left: 50%;
+  }
+  #square4 {
+    background: black;
+    opacity: 0.1;
+    top: 50%;
+    left:-50%;
+  }
+
+/* RIBBON */
+    .corner-ribbon{
+      width: 200px;
+      background: #35AF82;
+      position: absolute;
+      top: 25px;
+      left: -50px;
+      text-align: center;
+        font-size: 12px;
+      line-height: 50px;
+      letter-spacing: 1px;
+      color: white;
+      transform: rotate(-45deg);
+      -webkit-transform: rotate(-45deg);
+    }
+
+    /* Custom styles */
+
+    .corner-ribbon.sticky{
+      position: fixed;
+    }
+
+    .corner-ribbon.shadow{
+      box-shadow: 0 0 3px rgba(0,0,0,.3);
+    }
+
+    /* Different positions */
+
+    .corner-ribbon.top-left{
+      top: 25px;
+      left: -50px;
+      transform: rotate(-45deg);
+      -webkit-transform: rotate(-45deg);
+    }
